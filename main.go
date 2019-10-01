@@ -65,8 +65,8 @@ func From(r io.Reader) (*Article, error) {
 		return nil, err
 	}
 
-	// TODO(lobre) parse document in some sort of data structure
-	if err := a.parse(); err != nil {
+	// TODO(lobre) extract document in some sort of data structure
+	if err := a.extract(); err != nil {
 		return nil, err
 	}
 
@@ -81,7 +81,7 @@ func (a *Article) metadata() error {
 	return nil
 }
 
-func (a *Article) parse() error {
+func (a *Article) extract() error {
 	// init clip from body
 	a.clip = a.Doc.Find("body")
 
