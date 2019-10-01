@@ -4,7 +4,7 @@
 
 This project aims to implement a Golang version of the algorithm presented in the paper.
 
-It relies on `golang.org/x/net/html` to traverse HTML documents.
+It relies on `github.com/PuerkitoBio/goquery` to traverse HTML documents.
 
 The core package of the extractor is available as an generic package providing an API that can be called by external packages.
 

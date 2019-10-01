@@ -4,14 +4,92 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/guptarohit/asciigraph"
-	"golang.org/x/net/html"
 )
 
-type extractor struct {
-	l []string
+type Article struct {
+	Img *Image
+
+	Meta struct {
+		Authors     []string
+		Canonical   string
+		Description string
+		Domain      string
+		Favicon     string
+		Keywords    string
+		Links       []string
+		Lang        string
+		OpenGraph   map[string]string
+		PublishDate string
+		Tags        []string
+		Title       string
+	}
+
+	Doc *goquery.Document
+
+	clip *goquery.Selection
+}
+
+type Image struct {
+	Src        string
+	Width      uint
+	Height     uint
+	Bytes      int64
+	Confidence uint
+	Sel        *goquery.Selection
+}
+
+// From must be called before Html, Text or Markdown.
+func From(r io.Reader) (*Article, error) {
+	var (
+		a   Article
+		err error
+	)
+
+	a.Doc, err = goquery.NewDocumentFromReader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO(lobre) parse metadata
+	if err := a.metadata(); err != nil {
+		return nil, err
+	}
+
+	// TODO(lobre) parse image
+	if err := a.image(); err != nil {
+		return nil, err
+	}
+
+	// TODO(lobre) parse document in some sort of data structure
+	if err := a.parse(); err != nil {
+		return nil, err
+	}
+
+	return &a, nil
+}
+
+func (a *Article) image() error {
+	return nil
+}
+
+func (a *Article) metadata() error {
+	return nil
+}
+
+func (a *Article) parse() error {
+	// init clip from body
+	a.clip = a.Doc.Find("body")
+
+	// remove unwanted tags "link", "script", "style", "meta"
+	// analyse structural tags "p", "table", "br", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li"
+	// parse into a data structure that will easily allow outputs
+
+	return nil
 }
 
 func main() {
@@ -21,112 +99,32 @@ func main() {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer resp.Body.Close()
 
-	// initialize the linear list with an empty string
-	e := extractor{l: []string{""}}
-	e.traverse(resp.Body)
-	e.plot()
+	art, err := From(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(art.Text())
+	fmt.Println(art.Plot())
 }
 
-func (e *extractor) traverse(r io.Reader) {
-	z := html.NewTokenizer(r)
-	ignore := false
-
-	for {
-		tt := z.Next()
-
-		switch tt {
-
-		case html.ErrorToken:
-			return
-
-		case html.TextToken:
-			if ignore {
-				continue
-			}
-
-			token := z.Token()
-			e.l[len(e.l)-1] = e.l[len(e.l)-1] + token.Data
-
-		case html.StartTagToken, html.SelfClosingTagToken:
-			if ignore {
-				continue
-			}
-
-			token := z.Token()
-
-			if isIgnored(token.Data) {
-				ignore = true
-				continue
-			}
-
-			if isStructural(token.Data) {
-				e.l = append(e.l, "")
-			}
-
-		case html.EndTagToken:
-			token := z.Token()
-
-			if isIgnored(token.Data) {
-				ignore = false
-			}
-		}
-	}
+func (a *Article) Text() string {
+	return a.clip.Text()
 }
 
-func (e *extractor) plot() {
-	var data []float64
-
-	for _, s := range e.l {
-		data = append(data, float64(len(s)))
-	}
-
-	graph := asciigraph.Plot(data, asciigraph.Height(30), asciigraph.Width(60))
-	graph2 := asciigraph.Plot(data, asciigraph.Height(30))
-	fmt.Println(graph)
-	fmt.Println(graph2)
+func (a *Article) Html() (string, error) {
+	return a.clip.Html()
 }
 
-func isStructural(tag string) bool {
-	tags := []string{
-		"p",
-		"table",
-		"br",
-		"div",
-		"h1",
-		"h2",
-		"h3",
-		"h4",
-		"h5",
-		"h6",
-		"li",
-	}
-
-	for _, t := range tags {
-		if tag == t {
-			return true
-		}
-	}
-
-	return false
+func (a *Article) Markdown() (string, error) {
+	return "", nil
 }
 
-func isIgnored(tag string) bool {
-	tags := []string{
-		"link",
-		"script",
-		"style",
-		"meta",
-	}
-
-	for _, t := range tags {
-		if tag == t {
-			return true
-		}
-	}
-
-	return false
+func (a *Article) Plot() string {
+	data := []float64{3, 4, 9, 6, 2, 4, 5, 8, 5, 10, 2, 7, 2, 5, 6}
+	return asciigraph.Plot(data, asciigraph.Height(30))
 }
