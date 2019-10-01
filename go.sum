@@ -4,8 +4,16 @@ github.com/andybalholm/cascadia v1.0.0 h1:hOCXnnZ5A+3eVDX8pvgl4kofXv2ELss0bKcqRy
 github.com/andybalholm/cascadia v1.0.0/go.mod h1:GsXiBklL0woXo1j/WYWtSYYC4ouU9PqHO0sqidkEA4Y=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dchest/cssmin v0.0.0-20151210170030-fb8d9b44afdc h1:VBS1z48BFEe00G81z8MKOtwX7f/ISkuH38NscT8iVPw=
+github.com/dchest/cssmin v0.0.0-20151210170030-fb8d9b44afdc/go.mod h1:ABJPuor7YlcsHmvJ1QxX38e2NcufLY3hm0yXv+cy9sI=
+github.com/dchest/htmlmin v1.0.0 h1:joUQTro23wV2dV8oe/LDOM5m/iuwMx8Tt9WnhPzvqxM=
+github.com/dchest/htmlmin v1.0.0/go.mod h1:XsAE+b4rOZc8gvgsgF+wU75mNBvBcyED1wdd9PBLlJ0=
+github.com/dchest/jsmin v0.0.0-20160823214000-faeced883947 h1:Fm10/KNuoAyBm2P5P5H91Xy21hGcZnBdjR+cMdytv1M=
+github.com/dchest/jsmin v0.0.0-20160823214000-faeced883947/go.mod h1:Dv9D0NUlAsaQcGQZa5kc5mqR9ua72SmA8VXi4cd+cBw=
 github.com/guptarohit/asciigraph v0.4.1 h1:YHmCMN8VH81BIUIgTg2Fs3B52QDxNZw2RQ6j5pGoSxo=
 github.com/guptarohit/asciigraph v0.4.1/go.mod h1:9fYEfE5IGJGxlP1B+w8wHFy7sNZMhPtn59f0RLtpRFM=
+github.com/yosssi/gohtml v0.0.0-20190915184251-7ff6f235ecaf h1:VA200mPTYh9FWY8zKX5ctXCtNk78HUez8ecTdsQGhoo=
+github.com/yosssi/gohtml v0.0.0-20190915184251-7ff6f235ecaf/go.mod h1:+ccdNT0xMY1dtc5XBxumbYfOUhmduiGudqaDgD2rVRE=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/net v0.0.0-20180218175443-cbe0f9307d01/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/net v0.0.0-20181114220301-adae6a3d119a/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=

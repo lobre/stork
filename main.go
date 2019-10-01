@@ -1,19 +1,21 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"strings"
 
-	"github.com/PuerkitoBio/goquery"
+	"github.com/dchest/htmlmin"
 	"github.com/guptarohit/asciigraph"
+	"github.com/yosssi/gohtml"
 	"golang.org/x/net/html"
 )
 
-var IgnoreTags = []string{"script", "link", "style", "meta"}
+var IgnoreTags = []string{"header", "footer", "script", "link", "style", "meta"}
 var StructuralTags = []string{"p", "table", "br", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6"}
 
 type Article struct {
@@ -34,9 +36,9 @@ type Article struct {
 		Title       string
 	}
 
-	Doc *goquery.Document
+	Doc *html.Node
 
-	clip *goquery.Selection
+	body *html.Node
 }
 
 type Image struct {
@@ -45,7 +47,7 @@ type Image struct {
 	Height     uint
 	Bytes      int64
 	Confidence uint
-	Sel        *goquery.Selection
+	Node       *html.Node
 }
 
 // From must be called before Html, Text or Markdown.
@@ -55,9 +57,20 @@ func From(r io.Reader) (*Article, error) {
 		err error
 	)
 
-	a.Doc, err = goquery.NewDocumentFromReader(r)
+	a.Doc, err = html.Parse(r)
 	if err != nil {
 		return nil, err
+	}
+
+	// search body
+	iterate(a.Doc, func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "body" {
+			a.body = n
+		}
+	})
+
+	if a.body == nil {
+		return nil, errors.New("body not found")
 	}
 
 	// TODO(lobre) parse metadata
@@ -94,14 +107,34 @@ func (a *Article) metadata() error {
 }
 
 func (a *Article) strip() error {
-	// init clip from body
-	a.clip = a.Doc.Find("body")
+	//line := regexp.MustCompile(`\n+`)
+	//space := regexp.MustCompile(`\s+`)
 
-	// remove unwanted tags
-	a.clip.Find(strings.Join(IgnoreTags, ",")).Remove()
+	iterate(a.body, func(n *html.Node) {
+		switch n.Type {
+		case html.ElementNode:
+			// remove unwanted tags
+			for _, ignore := range IgnoreTags {
+				if n.Type == html.ElementNode && n.Data == ignore {
+					n.Parent.RemoveChild(n)
+				}
+			}
+
+			// remove id and class
+			var keep []html.Attribute
+			for _, attr := range n.Attr {
+				if attr.Key != "id" && attr.Key != "class" {
+					keep = append(keep, attr)
+				}
+			}
+			n.Attr = keep
+		case html.TextNode:
+			//n.Data = line.ReplaceAllString(n.Data, "\n")
+			//n.Data = space.ReplaceAllString(n.Data, " ")
+		}
+	})
 
 	// remove classes and id
-	a.clip.Find("*").RemoveClass().RemoveAttr("id")
 
 	// remove blank lines
 
@@ -125,21 +158,22 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	inline := `<html><body><div class="outter-class">
-        <h1 class="inner-class">
-	        The string I need
-
-	        <span class="other-class" >Some value I don't need</span>
-	        <span class="other-class2" title="sometitle"></span>
-        </h1>
-
-        <div class="other-class3">
-            <h3>Some heading i don't need</h3>
-        </div>
-    </div></body></html>`
-
-	art, err := From(strings.NewReader(inline))
-	//art, err := From(resp.Body)
+	//	inline := `<html><body><div class="outter-class">
+	//        <h1 class="inner-class">
+	//	        The string I need
+	//
+	//	        <span class="other-class" >Some value I don't need</span>
+	//	        <span class="other-class2" title="sometitle"></span>
+	//            <script></script>
+	//        </h1>
+	//
+	//        <div class="other-class3">
+	//            <h3>Some heading i don't need</h3>
+	//        </div>
+	//    </div></body></html>`
+	//
+	//art, err := From(strings.NewReader(inline))
+	art, err := From(resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -154,11 +188,20 @@ func main() {
 }
 
 func (a *Article) Text() string {
-	return a.clip.Text()
+	return ""
 }
 
 func (a *Article) Html() (string, error) {
-	return a.clip.Html()
+	var buf bytes.Buffer
+	w := io.Writer(&buf)
+	if err := html.Render(w, a.body); err != nil {
+		return "", err
+	}
+	b, err := htmlmin.Minify(buf.Bytes(), nil)
+	if err != nil {
+		return "", err
+	}
+	return gohtml.Format(string(b)), nil
 }
 
 func (a *Article) Markdown() (string, error) {
@@ -170,23 +213,22 @@ func (a *Article) Plot() string {
 	return asciigraph.Plot(data, asciigraph.Height(30))
 }
 
-func iterate(doc *html.Node, do func(n *html.Node) error) error {
-	var f func(n *html.Node) error
-	f = func(n *html.Node) error {
-		if err := do(n); err != nil {
-			return err
+func iterate(doc *html.Node, do func(*html.Node)) {
+	if doc == nil {
+		return
+	}
+
+	var f func(n *html.Node)
+	f = func(n *html.Node) {
+		if n == nil {
+			return
 		}
+
+		do(n)
+
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if err := f(c); err != nil {
-				return err
-			}
+			f(c)
 		}
-		return nil
 	}
-
-	if err := f(doc); err != nil {
-		return err
-	}
-
-	return nil
+	f(doc)
 }
