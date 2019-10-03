@@ -3,8 +3,6 @@ module github.com/lobre/stork
 go 1.13
 
 require (
-	github.com/PuerkitoBio/goquery v1.5.0
-	github.com/andybalholm/cascadia v1.0.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dchest/cssmin v0.0.0-20151210170030-fb8d9b44afdc // indirect
 	github.com/dchest/htmlmin v1.0.0

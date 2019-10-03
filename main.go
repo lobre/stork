@@ -8,7 +8,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/dchest/htmlmin"
 	"github.com/guptarohit/asciigraph"
 	"github.com/yosssi/gohtml"
@@ -107,8 +110,7 @@ func (a *Article) metadata() error {
 }
 
 func (a *Article) strip() error {
-	//line := regexp.MustCompile(`\n+`)
-	//space := regexp.MustCompile(`\s+`)
+	spacing := regexp.MustCompile(`[ \r\n\t]+`)
 
 	iterate(a.body, func(n *html.Node) {
 		switch n.Type {
@@ -116,22 +118,28 @@ func (a *Article) strip() error {
 			// remove unwanted tags
 			for _, ignore := range IgnoreTags {
 				if n.Type == html.ElementNode && n.Data == ignore {
-					n.Parent.RemoveChild(n)
+					remove(n)
 				}
 			}
 
-			// remove id and class
+			// remove class
 			var keep []html.Attribute
 			for _, attr := range n.Attr {
-				if attr.Key != "id" && attr.Key != "class" {
+				if attr.Key != "class" {
 					keep = append(keep, attr)
 				}
 			}
 			n.Attr = keep
 		case html.TextNode:
-			//n.Data = line.ReplaceAllString(n.Data, "\n")
-			//n.Data = space.ReplaceAllString(n.Data, " ")
+			n.Data = strings.TrimSpace(spacing.ReplaceAllString(n.Data, " "))
+			if n.Data == "" {
+				remove(n)
+			}
 		}
+	})
+
+	iterate(a.body, func(n *html.Node) {
+		spew.Dump(n.Data)
 	})
 
 	// remove classes and id
@@ -158,22 +166,22 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	//	inline := `<html><body><div class="outter-class">
-	//        <h1 class="inner-class">
-	//	        The string I need
-	//
-	//	        <span class="other-class" >Some value I don't need</span>
-	//	        <span class="other-class2" title="sometitle"></span>
-	//            <script></script>
-	//        </h1>
-	//
-	//        <div class="other-class3">
-	//            <h3>Some heading i don't need</h3>
-	//        </div>
-	//    </div></body></html>`
-	//
-	//art, err := From(strings.NewReader(inline))
-	art, err := From(resp.Body)
+	inline := `<html><body><div id="toto" class="outter-class">
+	        <h1 class="inner-class">
+		        The string I need
+	
+		        <span class="other-class" >Some value I don't need</span>
+		        <span class="other-class2" title="sometitle"></span>
+	            <script></script>
+	        </h1>
+	
+	        <div class="other-class3">
+	            <h3>Some heading i don't need</h3>
+	        </div>
+	    </div></body></html>`
+
+	art, err := From(strings.NewReader(inline))
+	//art, err := From(resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -231,4 +239,12 @@ func iterate(doc *html.Node, do func(*html.Node)) {
 		}
 	}
 	f(doc)
+}
+
+func remove(n *html.Node) {
+	// save next because it is removed by RemoveChild
+	// but we need it to continue iterating
+	next := n.NextSibling
+	n.Parent.RemoveChild(n)
+	n.NextSibling = next
 }
