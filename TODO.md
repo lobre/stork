@@ -23,3 +23,17 @@ We can:
  - make sure <pre> does not contain added spaces
 
 The strategy will apply on text elements (because they will contain the newlines). That means we will have to check the parent / previous / next element tags.
+
+---
+
+Another directly for spacing.
+Render() will render HTML with good spacing according to HTML rules.
+Try to study Render() to be sure about this assumption.
+
+So what is important is to clean the Text elements of the Node tree in order to simplify the Text and Markdown outputs.
+
+See https://github.com/jaytaylor/html2text/blob/master///html2text.go#L392:36
+
+---
+
+Should we use context in recursive functions?
