@@ -1,3 +1,20 @@
+// package main implements an algorithm of html content extraction.
+//
+// It claims to bring a simple, robust, accurate and language-independent solution
+// for extracting the main content of an HTML-formatted Web page and for
+// removing additional content such as navigation menus, functional
+// and design elements, and commercial advertisements.
+//
+// This method creates a text density graph of a given Web page and then
+// selects the region of the Web page with the highest density.
+//
+// For more information about the original method, please have a look
+// at the following paper.
+//
+// https://github.com/lobre/stork/raw/master/Language_Independent_Content_Extraction.pdf
+//
+// It provides here an implementation of the method given in the paper
+// but is not affiliated with the research.
 package main
 
 import (
@@ -17,13 +34,70 @@ import (
 	"golang.org/x/net/html"
 )
 
-var IgnoreTags = []string{"header", "footer", "script", "link", "style", "meta"}
-var StructuralTags = []string{"p", "table", "br", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6"}
+// IgnoreTags are tags that will be removed from the document before analysing it.
+// This list contains tags such as metadata elements that don't make sense in
+// the context of the extracted content.
+//
+// Note:
+// Fresh and clean new metadata will be added afterwards if using the Html() method
+// in order to re-create a full and complete html document.
+//
+// https://developer.mozilla.org/en-US/docs/Web/Guide/HTML/Content_categories#Metadata_content
+//
+// Other tags can be added to this list if they should be removed from the extracted document.
+var IgnoreTags = []string{"base", "command", "link", "meta", "noscript", "script", "style", "title"}
 
+// BlockTags are elements that always start on a new line and takes up the full width available
+// They are used to determine what is a structural tag in order to extract the main content of the page.
+//
+// https://www.w3schools.com/html/html_blocks.asp
+var BlockTags = []string{
+	"address",
+	"article",
+	"aside",
+	"blockquote",
+	"canvas",
+	"dd",
+	"div",
+	"dl",
+	"dt",
+	"fieldset",
+	"figcaption",
+	"figure",
+	"footer",
+	"form",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"header",
+	"hr",
+	"li",
+	"main",
+	"nav",
+	"noscript",
+	"ol",
+	"p",
+	"pre",
+	"section",
+	"table",
+	"tfoot",
+	"ul",
+	"video",
+}
+
+// Article contains all the extracted values of an html document.
+// It should be created using the From() method.
 type Article struct {
+	// A header image to use for the article
 	Thumbnail *Image
-	Images    []*Image
 
+	// Images contained in the extracted article
+	Images []*Image
+
+	// All metadata taken from the html document
 	Meta struct {
 		Authors     []string
 		Canonical   string
@@ -39,11 +113,14 @@ type Article struct {
 		Title       string
 	}
 
+	// The parent node representing the overall html document
 	Doc *html.Node
 
+	// An html node representing the body
 	body *html.Node
 }
 
+// Image contains information taken from a <img> html tag.
 type Image struct {
 	Src        string
 	Width      uint
@@ -53,7 +130,8 @@ type Image struct {
 	Node       *html.Node
 }
 
-// From must be called before Html, Text or Markdown.
+// From parses an html document from an io.Reader
+// and extracts the content into an Article.
 func From(r io.Reader) (*Article, error) {
 	var (
 		a   Article
@@ -216,6 +294,11 @@ func (a *Article) Markdown() (string, error) {
 	return "", nil
 }
 
+// Plot will draw the density graph calculated
+// from the extracted article.
+//
+// It will generate a graph alike what we can find on figure 2 at page 3 of the paper.
+// https://github.com/lobre/stork/raw/master/Language_Independent_Content_Extraction.pdf
 func (a *Article) Plot() string {
 	data := []float64{3, 4, 9, 6, 2, 4, 5, 8, 5, 10, 2, 7, 2, 5, 6}
 	return asciigraph.Plot(data, asciigraph.Height(30))
