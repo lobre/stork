@@ -15,6 +15,12 @@
 //
 // It provides here an implementation of the method given in the paper
 // but is not affiliated with the research.
+//
+// Before analysing the html document, the process first applies some simple techniques
+// to simplify the content.
+//  - strip everything that is not in the body tag
+//  - strip some unwanted tags
+//  - apply a whitespace removal strategy
 package main
 
 import (
@@ -28,6 +34,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
 )
@@ -152,27 +159,27 @@ func From(r io.Reader) (*Article, error) {
 		return nil, errors.New("body not found")
 	}
 
-	// TODO(lobre) parse metadata
+	// TODO parse metadata
 	if err := a.metadata(); err != nil {
 		return nil, err
 	}
 
-	// TODO(lobre) parse image
+	// TODO parse image
 	if err := a.image(); err != nil {
 		return nil, err
 	}
 
-	// TODO(lobre) strip useless bits of the document
+	// TODO strip useless bits of the document
 	if err := a.strip(); err != nil {
 		return nil, err
 	}
 
-	// TODO(lobre) extract document in some sort of data structure
+	// TODO extract document in some sort of data structure
 	if err := a.extract(); err != nil {
 		return nil, err
 	}
 
-	// TODO(lobre) parse article images
+	// TODO parse article images
 
 	// TODO assert if really an article
 
@@ -187,17 +194,35 @@ func (a *Article) metadata() error {
 	return nil
 }
 
+// strip will apply a first layer of cleaning to the parsed html.
+//
+// It will:
+//  - remove unwanted tags
+//  - apply a whitespace removal strategy
+//
+// The whitespace removal mechanism collapses all sequences of whitespace
+// (spaces, newlines, tabs) to a single space.
+//
+// It trims all text parts (in between tags) depending on whether it was
+// preceded by a space from a previous piece of text and whether it is followed up
+// by a block element or an inline element.
+//
+// In the former case we can omit spaces while for inline elements whitespace has significance.
+//
+// TODO improve this documentation.
 func (a *Article) strip() error {
 	spacing := regexp.MustCompile(`[ \r\n\t]+`)
+
+	//	iterate(a.body, func(n *html.Node) {
+	//		spew.Dump(n.Data)
+	//	})
 
 	iterate(a.body, func(n *html.Node) {
 		switch n.Type {
 		case html.ElementNode:
 			// remove unwanted tags
-			for _, ignore := range IgnoreTags {
-				if n.Type == html.ElementNode && n.Data == ignore {
-					remove(n)
-				}
+			if n.Type == html.ElementNode && isIgnoreTag(n.Data) {
+				remove(n)
 			}
 
 			// remove class
@@ -210,12 +235,27 @@ func (a *Article) strip() error {
 			n.Attr = keep
 		case html.TextNode:
 			if n.Parent.Data != "code" && n.Parent.Data != "pre" {
-				n.Data = strings.TrimSpace(spacing.ReplaceAllString(n.Data, " "))
-				if n.Data == "" {
+				// trim spaces
+				n.Data = spacing.ReplaceAllString(n.Data, " ")
+				if strings.TrimSpace(n.Data) == "" {
 					remove(n)
+				}
+
+				// remove leading space if first tag of parent
+				if n.PrevSibling == nil {
+					n.Data = strings.TrimLeft(n.Data, " ")
+				}
+
+				// remove ending space if last tag of parent
+				if n.NextSibling == nil {
+					n.Data = strings.TrimRight(n.Data, " ")
 				}
 			}
 		}
+	})
+
+	iterate(a.body, func(n *html.Node) {
+		spew.Dump(n.Data)
 	})
 
 	return nil
@@ -267,7 +307,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(html)
+	fmt.Printf("%#v", html)
 	//fmt.Println(art.Plot())
 }
 
@@ -282,6 +322,7 @@ func (a *Article) Html() (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+	//return gohtml.Format(buf.String()), nil
 }
 
 func (a *Article) Markdown() (string, error) {
@@ -291,7 +332,7 @@ func (a *Article) Markdown() (string, error) {
 // Plot will draw the density graph calculated
 // from the extracted article.
 //
-// It will generate a graph alike what we can find on figure 2 at page 3 of the paper.
+// It will generate a graph similar to the one on figure 2 at page 3 of the paper.
 // https://github.com/lobre/stork/raw/master/Language_Independent_Content_Extraction.pdf
 func (a *Article) Plot() string {
 	data := []float64{3, 4, 9, 6, 2, 4, 5, 8, 5, 10, 2, 7, 2, 5, 6}
@@ -324,4 +365,22 @@ func remove(n *html.Node) {
 	next := n.NextSibling
 	n.Parent.RemoveChild(n)
 	n.NextSibling = next
+}
+
+func isIgnoreTag(tag string) bool {
+	for _, t := range IgnoreTags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
+}
+
+func isBlockTag(tag string) bool {
+	for _, t := range BlockTags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
 }
