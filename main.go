@@ -50,47 +50,56 @@ import (
 // https://developer.mozilla.org/en-US/docs/Web/Guide/HTML/Content_categories#Metadata_content
 //
 // Other tags can be added to this list if they should be removed from the extracted document.
-var IgnoreTags = []string{"base", "command", "link", "meta", "noscript", "script", "style", "title"}
+var IgnoreTags = map[string]bool{
+	"base":     true,
+	"command":  true,
+	"link":     true,
+	"meta":     true,
+	"noscript": true,
+	"script":   true,
+	"style":    true,
+	"title":    true,
+}
 
 // BlockTags are elements that always start on a new line and takes up the full width available
 // They are used to determine what is a structural tag in order to extract the main content of the page.
 //
 // https://www.w3schools.com/html/html_blocks.asp
-var BlockTags = []string{
-	"address",
-	"article",
-	"aside",
-	"blockquote",
-	"canvas",
-	"dd",
-	"div",
-	"dl",
-	"dt",
-	"fieldset",
-	"figcaption",
-	"figure",
-	"footer",
-	"form",
-	"h1",
-	"h2",
-	"h3",
-	"h4",
-	"h5",
-	"h6",
-	"header",
-	"hr",
-	"li",
-	"main",
-	"nav",
-	"noscript",
-	"ol",
-	"p",
-	"pre",
-	"section",
-	"table",
-	"tfoot",
-	"ul",
-	"video",
+var BlockTags = map[string]bool{
+	"address":    true,
+	"article":    true,
+	"aside":      true,
+	"blockquote": true,
+	"canvas":     true,
+	"dd":         true,
+	"div":        true,
+	"dl":         true,
+	"dt":         true,
+	"fieldset":   true,
+	"figcaption": true,
+	"figure":     true,
+	"footer":     true,
+	"form":       true,
+	"h1":         true,
+	"h2":         true,
+	"h3":         true,
+	"h4":         true,
+	"h5":         true,
+	"h6":         true,
+	"header":     true,
+	"hr":         true,
+	"li":         true,
+	"main":       true,
+	"nav":        true,
+	"noscript":   true,
+	"ol":         true,
+	"p":          true,
+	"pre":        true,
+	"section":    true,
+	"table":      true,
+	"tfoot":      true,
+	"ul":         true,
+	"video":      true,
 }
 
 // Article contains all the extracted values of an html document.
@@ -118,11 +127,12 @@ type Article struct {
 		Title       string
 	}
 
-	// The parent node representing the overall html document
-	Doc *html.Node
+	density []struct {
+		block *html.Node
+		text  string
+	}
 
-	// An html node representing the body
-	body *html.Node
+	output *html.Node
 }
 
 // Image contains information taken from a <img> html tag.
@@ -138,44 +148,48 @@ type Image struct {
 // From parses an html document from an io.Reader
 // and extracts the content into an Article.
 func From(r io.Reader) (*Article, error) {
-	var (
-		a   Article
-		err error
-	)
+	var a Article
 
-	a.Doc, err = html.Parse(r)
+	doc, err := html.Parse(r)
 	if err != nil {
 		return nil, err
 	}
 
 	// search body
-	iterate(a.Doc, func(n *html.Node) {
+	var body *html.Node
+	iterate(doc, func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "body" {
-			a.body = n
+			body = n
 		}
 	})
 
-	if a.body == nil {
+	if body == nil {
 		return nil, errors.New("body not found")
 	}
 
-	// TODO parse metadata
-	if err := a.metadata(); err != nil {
+	// TODO
+	if err := a.extractMetadata(doc); err != nil {
 		return nil, err
 	}
 
-	// TODO parse image
-	if err := a.image(); err != nil {
+	// TODO
+	if err := a.extractThumbnail(doc); err != nil {
 		return nil, err
 	}
 
-	// TODO strip useless bits of the document
-	if err := a.strip(); err != nil {
+	// TODO
+	if err := a.stripContent(body); err != nil {
 		return nil, err
 	}
 
-	// TODO extract document in some sort of data structure
-	if err := a.extract(); err != nil {
+	// TODO
+	// this should create
+	if err := a.calculateDensity(body); err != nil {
+		return nil, err
+	}
+
+	// TODO
+	if err := a.generateArticle(body); err != nil {
 		return nil, err
 	}
 
@@ -186,15 +200,15 @@ func From(r io.Reader) (*Article, error) {
 	return &a, nil
 }
 
-func (a *Article) image() error {
+func (a *Article) extractThumbnail(doc *html.Node) error {
 	return nil
 }
 
-func (a *Article) metadata() error {
+func (a *Article) extractMetadata(doc *html.Node) error {
 	return nil
 }
 
-// strip will apply a first layer of cleaning to the parsed html.
+// stripContent will apply a first layer of cleaning to the parsed html.
 //
 // It will:
 //  - remove unwanted tags
@@ -210,18 +224,18 @@ func (a *Article) metadata() error {
 // In the former case we can omit spaces while for inline elements whitespace has significance.
 //
 // TODO improve this documentation.
-func (a *Article) strip() error {
+func (a *Article) stripContent(body *html.Node) error {
 	spacing := regexp.MustCompile(`[ \r\n\t]+`)
 
-	//	iterate(a.body, func(n *html.Node) {
+	//	iterate(body, func(n *html.Node) {
 	//		spew.Dump(n.Data)
 	//	})
 
-	iterate(a.body, func(n *html.Node) {
+	iterate(body, func(n *html.Node) {
 		switch n.Type {
 		case html.ElementNode:
 			// remove unwanted tags
-			if n.Type == html.ElementNode && isIgnoreTag(n.Data) {
+			if n.Type == html.ElementNode && IgnoreTags[n.Data] {
 				remove(n)
 			}
 
@@ -254,16 +268,29 @@ func (a *Article) strip() error {
 		}
 	})
 
-	iterate(a.body, func(n *html.Node) {
+	iterate(body, func(n *html.Node) {
 		spew.Dump(n.Data)
 	})
 
 	return nil
 }
 
-func (a *Article) extract() error {
-	// analyse structural tags "p", "table", "br", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li"
-	// parse into a data structure that will easily allow outputs
+func (a *Article) calculateDensity(body *html.Node) error {
+	// fill the density slice
+	return nil
+}
+
+// body parameter is temporary while the density is not implemented
+func (a *Article) generateArticle(body *html.Node) error {
+	// initiale node with an html skeleton
+	// generate metadata nodes
+	// generate thumbnail node
+	// calculate article boundaries with density map
+	// append relevant tags to article
+
+	// temp
+	a.output = body
+
 	return nil
 }
 
@@ -318,7 +345,7 @@ func (a *Article) Text() string {
 func (a *Article) Html() (string, error) {
 	var buf bytes.Buffer
 	w := io.Writer(&buf)
-	if err := html.Render(w, a.body); err != nil {
+	if err := html.Render(w, a.output); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -365,22 +392,4 @@ func remove(n *html.Node) {
 	next := n.NextSibling
 	n.Parent.RemoveChild(n)
 	n.NextSibling = next
-}
-
-func isIgnoreTag(tag string) bool {
-	for _, t := range IgnoreTags {
-		if t == tag {
-			return true
-		}
-	}
-	return false
-}
-
-func isBlockTag(tag string) bool {
-	for _, t := range BlockTags {
-		if t == tag {
-			return true
-		}
-	}
-	return false
 }
