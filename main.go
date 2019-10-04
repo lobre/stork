@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/dchest/htmlmin"
 	"github.com/guptarohit/asciigraph"
 	"github.com/yosssi/gohtml"
@@ -22,7 +21,8 @@ var IgnoreTags = []string{"header", "footer", "script", "link", "style", "meta"}
 var StructuralTags = []string{"p", "table", "br", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6"}
 
 type Article struct {
-	Img *Image
+	Thumbnail *Image
+	Images    []*Image
 
 	Meta struct {
 		Authors     []string
@@ -96,6 +96,8 @@ func From(r io.Reader) (*Article, error) {
 		return nil, err
 	}
 
+	// TODO(lobre) parse article images
+
 	// TODO assert if really an article
 
 	return &a, nil
@@ -131,20 +133,14 @@ func (a *Article) strip() error {
 			}
 			n.Attr = keep
 		case html.TextNode:
-			n.Data = strings.TrimSpace(spacing.ReplaceAllString(n.Data, " "))
-			if n.Data == "" {
-				remove(n)
+			if n.Parent.Data != "code" && n.Parent.Data != "pre" {
+				n.Data = strings.TrimSpace(spacing.ReplaceAllString(n.Data, " "))
+				if n.Data == "" {
+					remove(n)
+				}
 			}
 		}
 	})
-
-	iterate(a.body, func(n *html.Node) {
-		spew.Dump(n.Data)
-	})
-
-	// remove classes and id
-
-	// remove blank lines
 
 	return nil
 }
@@ -166,22 +162,26 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	inline := `<html><body><div id="toto" class="outter-class">
-	        <h1 class="inner-class">
-		        The string I need
-	
-		        <span class="other-class" >Some value I don't need</span>
-		        <span class="other-class2" title="sometitle"></span>
-	            <script></script>
-	        </h1>
-	
-	        <div class="other-class3">
-	            <h3>Some heading i don't need</h3>
-	        </div>
-	    </div></body></html>`
+	//inline := `<html><body><div id="toto" class="outter-class">
+	//        <h1 class="inner-class">
+	//	        The string I need
+	//
+	//	        <span class="other-class" >Some value I don't need</span>
+	//	        <span class="other-class2" title="sometitle"></span>
+	//            <script></script>
+	//        </h1>
 
-	art, err := From(strings.NewReader(inline))
-	//art, err := From(resp.Body)
+	//        <pre>function toto()
+	//        toto
+	//          toto</pre>
+	//
+	//        <div class="other-class3">
+	//            <h3>Some heading i don't need</h3>
+	//        </div>
+	//    </div></body></html>`
+
+	//art, err := From(strings.NewReader(inline))
+	art, err := From(resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func main() {
 	}
 
 	fmt.Println(html)
-	fmt.Println(art.Plot())
+	//fmt.Println(art.Plot())
 }
 
 func (a *Article) Text() string {
