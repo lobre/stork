@@ -34,6 +34,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
 )
@@ -304,18 +305,57 @@ func main() {
 		log.Fatal(err)
 	}
 
-	html, err := art.Html()
-	if err != nil {
-		log.Fatal(err)
-	}
+	//html, err := art.Html()
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//fmt.Println(html)
 
-	fmt.Println(html)
-	//fmt.Printf("%#v", html)
-	//fmt.Println(art.Plot())
+	fmt.Println(art.Text())
 }
 
+// TODO correct spacing regex because it is not working properly for inline
+// nested tags
 func (a *Article) Text() string {
-	return ""
+	buf := bytes.Buffer{}
+	spacing := regexp.MustCompile(`^\s+`)
+
+	iterate(a.output, func(n *html.Node) {
+		spew.Dump(n.Data)
+		switch n.Type {
+
+		case html.ElementNode:
+			if n.Data == "ul" {
+				buf.WriteString("\n")
+				break
+			}
+
+			if n.Data == "li" {
+				buf.WriteString("\n - ")
+				break
+			}
+
+			if n.Data == "div" {
+				if n.FirstChild == nil {
+					break
+				}
+				if n.FirstChild.Type != html.TextNode {
+					break
+				}
+			}
+
+			if BlockTags[n.Data] {
+				buf.WriteString("\n\n")
+			}
+
+		case html.TextNode:
+			n.Data = spacing.ReplaceAllString(n.Data, "")
+			buf.WriteString(n.Data)
+		}
+
+	})
+
+	return buf.String()
 }
 
 func (a *Article) Html() (string, error) {
