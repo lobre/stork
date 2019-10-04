@@ -20,7 +20,7 @@
 // to simplify the content.
 //  - strip everything that is not in the body tag
 //  - strip some unwanted tags
-//  - apply a whitespace removal strategy
+//  - apply a simple whitespace removal strategy
 package main
 
 import (
@@ -34,7 +34,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
 )
@@ -212,30 +211,20 @@ func (a *Article) extractMetadata(doc *html.Node) error {
 //
 // It will:
 //  - remove unwanted tags
-//  - apply a whitespace removal strategy
-//
-// The whitespace removal mechanism collapses all sequences of whitespace
-// (spaces, newlines, tabs) to a single space.
-//
-// It trims all text parts (in between tags) depending on whether it was
-// preceded by a space from a previous piece of text and whether it is followed up
-// by a block element or an inline element.
-//
-// In the former case we can omit spaces while for inline elements whitespace has significance.
-//
-// TODO improve this documentation.
+//  - remove comments
+//  - apply a whitespace removal strategy (collapse all sequences of
+//    whitespace (spaces, newlines, tabs) to a single space)
 func (a *Article) stripContent(body *html.Node) error {
 	spacing := regexp.MustCompile(`[ \r\n\t]+`)
 
-	//	iterate(body, func(n *html.Node) {
-	//		spew.Dump(n.Data)
-	//	})
-
 	iterate(body, func(n *html.Node) {
 		switch n.Type {
+
+		case html.CommentNode:
+			remove(n)
+
 		case html.ElementNode:
-			// remove unwanted tags
-			if n.Type == html.ElementNode && IgnoreTags[n.Data] {
+			if IgnoreTags[n.Data] {
 				remove(n)
 			}
 
@@ -247,29 +236,15 @@ func (a *Article) stripContent(body *html.Node) error {
 				}
 			}
 			n.Attr = keep
+
 		case html.TextNode:
 			if n.Parent.Data != "code" && n.Parent.Data != "pre" {
-				// trim spaces
 				n.Data = spacing.ReplaceAllString(n.Data, " ")
 				if strings.TrimSpace(n.Data) == "" {
 					remove(n)
 				}
-
-				// remove leading space if first tag of parent
-				if n.PrevSibling == nil {
-					n.Data = strings.TrimLeft(n.Data, " ")
-				}
-
-				// remove ending space if last tag of parent
-				if n.NextSibling == nil {
-					n.Data = strings.TrimRight(n.Data, " ")
-				}
 			}
 		}
-	})
-
-	iterate(body, func(n *html.Node) {
-		spew.Dump(n.Data)
 	})
 
 	return nil
@@ -334,7 +309,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("%#v", html)
+	fmt.Println(html)
+	//fmt.Printf("%#v", html)
 	//fmt.Println(art.Plot())
 }
 
@@ -392,4 +368,42 @@ func remove(n *html.Node) {
 	next := n.NextSibling
 	n.Parent.RemoveChild(n)
 	n.NextSibling = next
+}
+
+// canTrimLeft evaluates if the text node n
+// can be trimmed on the left.
+//
+// It will be trimmable:
+//  - if the previous tag is a <br>,
+//  - if the previous tag is block tag,
+//  - if there are only inline tag before it til the root of the tree,
+func canTrimLeft(n *html.Node) bool {
+	// init previous tag
+	prev := n.PrevSibling
+	if prev == nil {
+		prev = n.Parent
+	}
+
+	for prev != nil {
+		if prev.Type == html.TextNode {
+			return false
+		}
+		if prev.Type == html.ElementNode && prev.Data == "br" {
+			return true
+		}
+		if prev.Type == html.ElementNode && BlockTags[prev.Data] {
+			return true
+		}
+
+		// assign to parent if no previous sibling
+		if prev.PrevSibling == nil {
+			prev = prev.Parent
+			continue
+		}
+
+		prev = prev.PrevSibling
+	}
+
+	// n is the first content tag so it should be trimmed
+	return true
 }
