@@ -28,9 +28,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/dchest/htmlmin"
 	"github.com/guptarohit/asciigraph"
-	"github.com/yosssi/gohtml"
 	"golang.org/x/net/html"
 )
 
@@ -283,11 +281,7 @@ func (a *Article) Html() (string, error) {
 	if err := html.Render(w, a.body); err != nil {
 		return "", err
 	}
-	b, err := htmlmin.Minify(buf.Bytes(), nil)
-	if err != nil {
-		return "", err
-	}
-	return gohtml.Format(string(b)), nil
+	return buf.String(), nil
 }
 
 func (a *Article) Markdown() (string, error) {
