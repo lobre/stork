@@ -34,7 +34,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
 )
@@ -157,7 +156,7 @@ func From(r io.Reader) (*Article, error) {
 
 	// search body
 	var body *html.Node
-	iterate(doc, func(n *html.Node) {
+	iterate(doc, func(n *html.Node, last *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "body" {
 			body = n
 		}
@@ -213,12 +212,11 @@ func (a *Article) extractMetadata(doc *html.Node) error {
 // It will:
 //  - remove unwanted tags
 //  - remove comments
-//  - apply a whitespace removal strategy (collapse all sequences of
-//    whitespace (spaces, newlines, tabs) to a single space)
+//  - apply a whitespace removal strategy
 func (a *Article) stripContent(body *html.Node) error {
 	spacing := regexp.MustCompile(`[ \r\n\t]+`)
 
-	iterate(body, func(n *html.Node) {
+	iterate(body, func(n *html.Node, last *html.Node) {
 		switch n.Type {
 
 		case html.CommentNode:
@@ -239,10 +237,21 @@ func (a *Article) stripContent(body *html.Node) error {
 			n.Attr = keep
 
 		case html.TextNode:
-			if n.Parent.Data != "code" && n.Parent.Data != "pre" {
+			if n.Parent == nil || n.Parent.Data != "code" && n.Parent.Data != "pre" {
+				// replace all whitespace characters to a single space
 				n.Data = spacing.ReplaceAllString(n.Data, " ")
-				if strings.TrimSpace(n.Data) == "" {
-					remove(n)
+
+				// remove leading space character if after a block element
+				if last != nil && last.Type == html.ElementNode && (BlockTags[last.Data] || last.Data == "br") {
+					if strings.TrimSpace(n.Data) == "" {
+						remove(n)
+					}
+					n.Data = strings.TrimLeft(n.Data, " ")
+				}
+
+				// remove ending space character if last element of a block parent
+				if n.Parent != nil && BlockTags[n.Parent.Data] && n.NextSibling == nil {
+					n.Data = strings.TrimRight(n.Data, " ")
 				}
 			}
 		}
@@ -314,18 +323,14 @@ func main() {
 	fmt.Println(art.Text())
 }
 
-// TODO correct spacing regex because it is not working properly for inline
-// nested tags
 func (a *Article) Text() string {
 	buf := bytes.Buffer{}
-	spacing := regexp.MustCompile(`^\s+`)
 
-	iterate(a.output, func(n *html.Node) {
-		spew.Dump(n.Data)
+	iterate(a.output, func(n *html.Node, last *html.Node) {
 		switch n.Type {
 
 		case html.ElementNode:
-			if n.Data == "ul" {
+			if n.Data == "ul" || n.Data == "br" {
 				buf.WriteString("\n")
 				break
 			}
@@ -349,7 +354,6 @@ func (a *Article) Text() string {
 			}
 
 		case html.TextNode:
-			n.Data = spacing.ReplaceAllString(n.Data, "")
 			buf.WriteString(n.Data)
 		}
 
@@ -382,24 +386,27 @@ func (a *Article) Plot() string {
 	return asciigraph.Plot(data, asciigraph.Height(30))
 }
 
-func iterate(doc *html.Node, do func(*html.Node)) {
+func iterate(doc *html.Node, do func(*html.Node, *html.Node)) {
 	if doc == nil {
 		return
 	}
 
-	var f func(n *html.Node)
-	f = func(n *html.Node) {
+	var f func(n *html.Node, last *html.Node) *html.Node
+	f = func(n *html.Node, last *html.Node) *html.Node {
 		if n == nil {
-			return
+			return last
 		}
 
-		do(n)
+		do(n, last)
 
+		last = n
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
+			last = f(c, last)
 		}
+
+		return last
 	}
-	f(doc)
+	f(doc, nil)
 }
 
 func remove(n *html.Node) {
