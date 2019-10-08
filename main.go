@@ -34,6 +34,7 @@ import (
 	"regexp"
 	"strings"
 
+	md "github.com/evorts/html-to-markdown"
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
 )
@@ -237,22 +238,32 @@ func (a *Article) stripContent(body *html.Node) error {
 			n.Attr = keep
 
 		case html.TextNode:
-			if n.Parent == nil || n.Parent.Data != "code" && n.Parent.Data != "pre" {
-				// replace all whitespace characters to a single space
-				n.Data = spacing.ReplaceAllString(n.Data, " ")
+			if n.Parent != nil && (n.Parent.Data == "code" || n.Parent.Data == "pre") {
+				return
+			}
 
-				// remove leading space character if after a block element
-				if last != nil && last.Type == html.ElementNode && (BlockTags[last.Data] || last.Data == "br") {
-					if strings.TrimSpace(n.Data) == "" {
-						remove(n)
-					}
-					n.Data = strings.TrimLeft(n.Data, " ")
-				}
+			// replace all whitespace characters to a single space
+			n.Data = spacing.ReplaceAllString(n.Data, " ")
 
-				// remove ending space character if last element of a block parent
-				if n.Parent != nil && BlockTags[n.Parent.Data] && n.NextSibling == nil {
-					n.Data = strings.TrimRight(n.Data, " ")
+			// If after a block tag that ends
+			if n.PrevSibling != nil && n.PrevSibling.Type == html.ElementNode && (BlockTags[n.PrevSibling.Data] || n.PrevSibling.Data == "br") {
+				if strings.TrimSpace(n.Data) == "" {
+					remove(n)
 				}
+				n.Data = strings.TrimLeft(n.Data, " ")
+			}
+
+			// remove leading space character if after a block element
+			if last != nil && last.Type == html.ElementNode && (BlockTags[last.Data] || last.Data == "br") {
+				if strings.TrimSpace(n.Data) == "" {
+					remove(n)
+				}
+				n.Data = strings.TrimLeft(n.Data, " ")
+			}
+
+			// remove ending space character if last element of a block parent
+			if n.Parent != nil && BlockTags[n.Parent.Data] && n.NextSibling == nil {
+				n.Data = strings.TrimRight(n.Data, " ")
 			}
 		}
 	})
@@ -314,13 +325,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//html, err := art.Html()
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//fmt.Println(html)
+	md, err := art.Markdown()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(md)
 
-	fmt.Println(art.Text())
+	html, err := art.Html()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(html)
+
+	//fmt.Println(art.Text())
 }
 
 func (a *Article) Text() string {
@@ -362,18 +379,31 @@ func (a *Article) Text() string {
 	return buf.String()
 }
 
+// TODO pretty print html
 func (a *Article) Html() (string, error) {
 	var buf bytes.Buffer
 	w := io.Writer(&buf)
 	if err := html.Render(w, a.output); err != nil {
 		return "", err
 	}
-	return buf.String(), nil
-	//return gohtml.Format(buf.String()), nil
+	return html.UnescapeString(buf.String()), nil
 }
 
 func (a *Article) Markdown() (string, error) {
-	return "", nil
+	var buf bytes.Buffer
+	w := io.Writer(&buf)
+	if err := html.Render(w, a.output); err != nil {
+		return "", err
+	}
+
+	converter := md.NewConverter("", true, nil)
+
+	markdown, err := converter.ConvertString(html.UnescapeString(buf.String()))
+	if err != nil {
+		return "", err
+	}
+
+	return markdown, nil
 }
 
 // Plot will draw the density graph calculated
