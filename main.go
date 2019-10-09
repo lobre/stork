@@ -325,11 +325,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	md, err := art.Markdown()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(md)
+	//md, err := art.Markdown()
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//fmt.Println(md)
 
 	html, err := art.Html()
 	if err != nil {
@@ -381,12 +381,11 @@ func (a *Article) Text() string {
 
 // TODO pretty print html
 func (a *Article) Html() (string, error) {
-	var buf bytes.Buffer
-	w := io.Writer(&buf)
-	if err := html.Render(w, a.output); err != nil {
+	var b strings.Builder
+	if err := renderHtml(&b, a.output); err != nil {
 		return "", err
 	}
-	return html.UnescapeString(buf.String()), nil
+	return b.String(), nil
 }
 
 func (a *Article) Markdown() (string, error) {
