@@ -39,9 +39,8 @@ func renderHtml(b *strings.Builder, n *html.Node) error {
 	case html.ErrorNode:
 		return errors.New("cannot render an ErrorNode node")
 	case html.TextNode:
-		if _, err := b.WriteString(n.Data); err != nil {
-			return err
-		}
+		_, err := b.WriteString(n.Data)
+		return err
 	case html.DocumentNode:
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if err := renderHtml(b, c); err != nil {
@@ -110,9 +109,27 @@ func renderHtml(b *strings.Builder, n *html.Node) error {
 		return err
 	}
 
+	// Check if need to indent
+	indent := false
+	if BlockTags[n.Data] || n.Data == "br" {
+		indent = true
+	}
+
+	if indent {
+		if err := b.WriteByte('\n'); err != nil {
+			return err
+		}
+	}
+
 	// Render any child nodes.
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if err := renderHtml(b, c); err != nil {
+			return err
+		}
+	}
+
+	if indent {
+		if err := b.WriteByte('\n'); err != nil {
 			return err
 		}
 	}
