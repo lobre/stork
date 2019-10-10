@@ -9,9 +9,18 @@ import (
 )
 
 var (
-	TabStr = []byte("    ")
-	NewStr = []byte("\n")
+	TabStr = "    "
+	NewStr = "\n"
 )
+
+// Html renders the article in html format.
+func (a *Article) Html() (string, error) {
+	var b strings.Builder
+	if err := renderHtml(&b, a.output, 0); err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
 
 // renderHtml is a simplest version of the one implemented in
 // golang.org/x/net/html.Render.
@@ -23,11 +32,19 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int) error {
 	case html.ErrorNode:
 		return errors.New("cannot render an ErrorNode node")
 	case html.TextNode:
-		_, err := b.WriteString(n.Data)
-		return err
+		switch {
+		case n.Parent != nil && (n.Parent.Data == "pre" || n.Parent.Data == "code"),
+			n.PrevSibling == nil && n.NextSibling == nil:
+
+			_, err := b.WriteString(n.Data)
+			return err
+		default:
+			_, err := b.WriteString(fmt.Sprint(strings.Repeat(TabStr, depth), n.Data))
+			return err
+		}
 	case html.DocumentNode:
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if err := renderHtml(b, c); err != nil {
+			if err := renderHtml(b, c, depth+1); err != nil {
 				return err
 			}
 		}
@@ -48,6 +65,10 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int) error {
 		return b.WriteByte('>')
 	default:
 		return errors.New("unknown node type")
+	}
+
+	if _, err := b.WriteString(strings.Repeat(TabStr, depth)); err != nil {
+		return err
 	}
 
 	// Render the <xxx> opening tag.
@@ -93,27 +114,29 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int) error {
 		return err
 	}
 
-	// Check if need to indent
-	indent := false
-	if BlockTags[n.Data] || n.Data == "br" {
-		indent = true
-	}
-
-	if indent {
-		if err := b.WriteByte('\n'); err != nil {
-			return err
-		}
-	}
-
 	// Render any child nodes.
+	inline := false
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		if err := renderHtml(b, c); err != nil {
+		switch {
+		case c == n.FirstChild && c.NextSibling == nil && c.Type == html.TextNode,
+			n.Data == "pre" || n.Data == "code":
+
+			inline = true
+			break
+
+		default:
+			if _, err := b.WriteString(NewStr); err != nil {
+				return err
+			}
+		}
+
+		if err := renderHtml(b, c, depth+1); err != nil {
 			return err
 		}
 	}
 
-	if indent {
-		if err := b.WriteByte('\n'); err != nil {
+	if !inline {
+		if _, err := b.WriteString(fmt.Sprint(NewStr, strings.Repeat(TabStr, depth))); err != nil {
 			return err
 		}
 	}

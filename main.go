@@ -24,7 +24,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -34,7 +33,6 @@ import (
 	"regexp"
 	"strings"
 
-	md "github.com/evorts/html-to-markdown"
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
 )
@@ -246,7 +244,7 @@ func main() {
 	//	        <span class="other-class2" title="sometitle"></span>
 	//            <script></script>
 	//        </h1>
-
+	//
 	//        <pre>function toto()
 	//        toto
 	//          toto</pre>
@@ -275,71 +273,6 @@ func main() {
 	fmt.Println(html)
 
 	//fmt.Println(art.Text())
-}
-
-func (a *Article) Text() string {
-	buf := bytes.Buffer{}
-
-	iterate(a.output, func(n *html.Node, last *html.Node) {
-		switch n.Type {
-
-		case html.ElementNode:
-			if n.Data == "ul" || n.Data == "br" {
-				buf.WriteString("\n")
-				break
-			}
-
-			if n.Data == "li" {
-				buf.WriteString("\n - ")
-				break
-			}
-
-			if n.Data == "div" {
-				if n.FirstChild == nil {
-					break
-				}
-				if n.FirstChild.Type != html.TextNode {
-					break
-				}
-			}
-
-			if BlockTags[n.Data] {
-				buf.WriteString("\n\n")
-			}
-
-		case html.TextNode:
-			buf.WriteString(n.Data)
-		}
-
-	})
-
-	return buf.String()
-}
-
-// TODO pretty print html
-func (a *Article) Html() (string, error) {
-	var b strings.Builder
-	if err := renderHtml(&b, a.output); err != nil {
-		return "", err
-	}
-	return b.String(), nil
-}
-
-func (a *Article) Markdown() (string, error) {
-	var buf bytes.Buffer
-	w := io.Writer(&buf)
-	if err := html.Render(w, a.output); err != nil {
-		return "", err
-	}
-
-	converter := md.NewConverter("", true, nil)
-
-	markdown, err := converter.ConvertString(html.UnescapeString(buf.String()))
-	if err != nil {
-		return "", err
-	}
-
-	return markdown, nil
 }
 
 // Plot will draw the density graph calculated
