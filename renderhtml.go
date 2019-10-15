@@ -39,7 +39,7 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int) error {
 			_, err := b.WriteString(n.Data)
 			return err
 		default:
-			_, err := b.WriteString(fmt.Sprint(strings.Repeat(TabStr, depth), n.Data))
+			_, err := b.WriteString(fmt.Sprint(strings.Repeat(TabStr, depth), strings.TrimSpace(n.Data)))
 			return err
 		}
 	case html.DocumentNode:

@@ -10,7 +10,7 @@ import (
 func (a *Article) Text() string {
 	buf := bytes.Buffer{}
 
-	iterate(a.output, func(n *html.Node, last *html.Node) {
+	iterate(a.output, func(n *html.Node) {
 		switch n.Type {
 
 		case html.ElementNode:

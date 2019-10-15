@@ -30,8 +30,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"regexp"
-	"strings"
 
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
@@ -92,7 +90,7 @@ func From(r io.Reader) (*Article, error) {
 
 	// search body
 	var body *html.Node
-	iterate(doc, func(n *html.Node, last *html.Node) {
+	iterate(doc, func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "body" {
 			body = n
 		}
@@ -113,7 +111,7 @@ func From(r io.Reader) (*Article, error) {
 	}
 
 	// TODO
-	if err := a.stripContent(body); err != nil {
+	if err := a.clean(body); err != nil {
 		return nil, err
 	}
 
@@ -143,16 +141,14 @@ func (a *Article) extractMetadata(doc *html.Node) error {
 	return nil
 }
 
-// stripContent will apply a first layer of cleaning to the parsed html.
+// clean will apply a first layer of cleaning to the parsed html.
 //
 // It will:
 //  - remove unwanted tags
 //  - remove comments
 //  - apply a whitespace removal strategy
-func (a *Article) stripContent(body *html.Node) error {
-	spacing := regexp.MustCompile(`[ \r\n\t]+`)
-
-	iterate(body, func(n *html.Node, last *html.Node) {
+func (a *Article) clean(body *html.Node) error {
+	iterate(body, func(n *html.Node) {
 		switch n.Type {
 
 		case html.CommentNode:
@@ -171,37 +167,10 @@ func (a *Article) stripContent(body *html.Node) error {
 				}
 			}
 			n.Attr = keep
-
-		case html.TextNode:
-			if n.Parent != nil && (n.Parent.Data == "code" || n.Parent.Data == "pre") {
-				return
-			}
-
-			// replace all whitespace characters to a single space
-			n.Data = spacing.ReplaceAllString(n.Data, " ")
-
-			// If after a block tag that ends
-			if n.PrevSibling != nil && n.PrevSibling.Type == html.ElementNode && (BlockTags[n.PrevSibling.Data] || n.PrevSibling.Data == "br") {
-				if strings.TrimSpace(n.Data) == "" {
-					remove(n)
-				}
-				n.Data = strings.TrimLeft(n.Data, " ")
-			}
-
-			// remove leading space character if after a block element
-			if last != nil && last.Type == html.ElementNode && (BlockTags[last.Data] || last.Data == "br") {
-				if strings.TrimSpace(n.Data) == "" {
-					remove(n)
-				}
-				n.Data = strings.TrimLeft(n.Data, " ")
-			}
-
-			// remove ending space character if last element of a block parent
-			if n.Parent != nil && BlockTags[n.Parent.Data] && n.NextSibling == nil {
-				n.Data = strings.TrimRight(n.Data, " ")
-			}
 		}
 	})
+
+	minify(body)
 
 	return nil
 }
@@ -272,7 +241,7 @@ func main() {
 	}
 	fmt.Println(html)
 
-	//fmt.Println(art.Text())
+	//	fmt.Println(art.Text())
 }
 
 // Plot will draw the density graph calculated
@@ -285,27 +254,26 @@ func (a *Article) Plot() string {
 	return asciigraph.Plot(data, asciigraph.Height(30))
 }
 
-func iterate(doc *html.Node, do func(*html.Node, *html.Node)) {
+func iterate(doc *html.Node, do func(*html.Node)) {
 	if doc == nil {
 		return
 	}
 
-	var f func(n *html.Node, last *html.Node) *html.Node
-	f = func(n *html.Node, last *html.Node) *html.Node {
+	var f func(n *html.Node)
+	f = func(n *html.Node) {
 		if n == nil {
-			return last
+			return
 		}
 
-		do(n, last)
+		do(n)
 
-		last = n
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			last = f(c, last)
+			f(c)
 		}
 
-		return last
+		return
 	}
-	f(doc, nil)
+	f(doc)
 }
 
 func remove(n *html.Node) {
