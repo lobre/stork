@@ -33,7 +33,7 @@ func (a *Article) Text() string {
 				}
 			}
 
-			if BlockTags[n.Data] {
+			if blockTags[n.Data] {
 				buf.WriteString("\n\n")
 			}
 

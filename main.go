@@ -235,13 +235,13 @@ func main() {
 	//}
 	//fmt.Println(md)
 
-	html, err := art.Html()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(html)
+	//html, err := art.Html()
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//fmt.Println(html)
 
-	//	fmt.Println(art.Text())
+	fmt.Println(art.Text())
 }
 
 // Plot will draw the density graph calculated

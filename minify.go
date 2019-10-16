@@ -31,7 +31,7 @@ func minify(n *html.Node) {
 func trimLeft(n *html.Node, trim bool) bool {
 	switch n.Type {
 	case html.ElementNode:
-		if BlockTags[n.Data] {
+		if blockTags[n.Data] {
 			trim = true
 		}
 
@@ -39,18 +39,18 @@ func trimLeft(n *html.Node, trim bool) bool {
 			trim = trimLeft(c, trim)
 		}
 
-		if BlockTags[n.Data] || n.Data == "br" {
+		if blockTags[n.Data] || n.Data == "br" {
 			return true
 		}
 
 	case html.TextNode:
 		if trim {
 			n.Data = strings.TrimLeft(n.Data, " \r\n\t")
-		}
 
-		if strings.TrimSpace(n.Data) == "" {
-			remove(n)
-			return trim
+			if strings.TrimSpace(n.Data) == "" {
+				remove(n)
+				return trim
+			}
 		}
 
 		return false
@@ -62,7 +62,7 @@ func trimLeft(n *html.Node, trim bool) bool {
 func trimRight(n *html.Node, trim bool) bool {
 	switch n.Type {
 	case html.ElementNode:
-		if BlockTags[n.Data] {
+		if blockTags[n.Data] {
 			trim = true
 		}
 
@@ -70,18 +70,18 @@ func trimRight(n *html.Node, trim bool) bool {
 			trim = trimRight(c, trim)
 		}
 
-		if BlockTags[n.Data] || n.Data == "br" {
+		if blockTags[n.Data] || n.Data == "br" {
 			return true
 		}
 
 	case html.TextNode:
 		if trim {
 			n.Data = strings.TrimRight(n.Data, " \r\n\t")
-		}
 
-		if strings.TrimSpace(n.Data) == "" {
-			remove(n)
-			return trim
+			if strings.TrimSpace(n.Data) == "" {
+				remove(n)
+				return trim
+			}
 		}
 
 		return false

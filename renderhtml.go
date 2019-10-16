@@ -16,7 +16,7 @@ var (
 // Html renders the article in html format.
 func (a *Article) Html() (string, error) {
 	var b strings.Builder
-	if err := renderHtml(&b, a.output, 0); err != nil {
+	if err := renderHtml(&b, a.output, 0, true); err != nil {
 		return "", err
 	}
 	return b.String(), nil
@@ -26,25 +26,17 @@ func (a *Article) Html() (string, error) {
 // golang.org/x/net/html.Render.
 // It does not escape special characters and adds newline
 // characters after block elements.
-func renderHtml(b *strings.Builder, n *html.Node, depth int) error {
+func renderHtml(b *strings.Builder, n *html.Node, depth int, indent bool) error {
 	// Render non-element nodes; these are the easy cases.
 	switch n.Type {
 	case html.ErrorNode:
 		return errors.New("cannot render an ErrorNode node")
 	case html.TextNode:
-		switch {
-		case n.Parent != nil && (n.Parent.Data == "pre" || n.Parent.Data == "code"),
-			n.PrevSibling == nil && n.NextSibling == nil:
-
-			_, err := b.WriteString(n.Data)
-			return err
-		default:
-			_, err := b.WriteString(fmt.Sprint(strings.Repeat(TabStr, depth), strings.TrimSpace(n.Data)))
-			return err
-		}
+		_, err := b.WriteString(n.Data)
+		return err
 	case html.DocumentNode:
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if err := renderHtml(b, c, depth+1); err != nil {
+			if err := renderHtml(b, c, depth+1, indent); err != nil {
 				return err
 			}
 		}
@@ -65,10 +57,6 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int) error {
 		return b.WriteByte('>')
 	default:
 		return errors.New("unknown node type")
-	}
-
-	if _, err := b.WriteString(strings.Repeat(TabStr, depth)); err != nil {
-		return err
 	}
 
 	// Render the <xxx> opening tag.
@@ -103,7 +91,7 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int) error {
 			return err
 		}
 	}
-	if VoidTags[n.Data] {
+	if voidTags[n.Data] {
 		if n.FirstChild != nil {
 			return fmt.Errorf("void element <%s> has child nodes", n.Data)
 		}
@@ -114,28 +102,45 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int) error {
 		return err
 	}
 
+	if inlineTags[n.Data] || n.Data == "pre" {
+		indent = false
+	}
+
+	if n.FirstChild == nil {
+		indent = false
+	}
+
 	// Render any child nodes.
-	inline := false
+	collapse := false
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		switch {
-		case c == n.FirstChild && c.NextSibling == nil && c.Type == html.TextNode,
-			n.Data == "pre" || n.Data == "code":
+		if singleTxt := (c == n.FirstChild && c.NextSibling == nil && c.Type == html.TextNode); singleTxt {
+			indent = false
+		}
 
-			inline = true
-			break
+		if c.PrevSibling != nil {
+			isPrevInline := c.PrevSibling.Type == html.ElementNode && inlineTags[c.PrevSibling.Data]
+			isPrevTxt := c.PrevSibling.Type == html.TextNode
+			isCurInline := c.Type == html.ElementNode && inlineTags[c.Data]
+			isCurTxt := c.Type == html.TextNode
 
-		default:
-			if _, err := b.WriteString(NewStr); err != nil {
-				return err
+			if isCurTxt && isPrevInline || isCurInline && isPrevTxt {
+				collapse = true
 			}
 		}
 
-		if err := renderHtml(b, c, depth+1); err != nil {
+		if indent && !collapse {
+			if _, err := b.WriteString(fmt.Sprint(NewStr, strings.Repeat(TabStr, depth+1))); err != nil {
+				return err
+			}
+
+		}
+
+		if err := renderHtml(b, c, depth+1, indent); err != nil {
 			return err
 		}
 	}
 
-	if !inline {
+	if indent {
 		if _, err := b.WriteString(fmt.Sprint(NewStr, strings.Repeat(TabStr, depth))); err != nil {
 			return err
 		}
