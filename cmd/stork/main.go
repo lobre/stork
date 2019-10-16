@@ -1,26 +1,3 @@
-// package main implements an algorithm of html content extraction.
-//
-// It claims to bring a simple, robust, accurate and language-independent solution
-// for extracting the main content of an HTML-formatted Web page and for
-// removing additional content such as navigation menus, functional
-// and design elements, and commercial advertisements.
-//
-// This method creates a text density graph of a given Web page and then
-// selects the region of the Web page with the highest density.
-//
-// For more information about the original method, please have a look
-// at the following paper.
-//
-// https://github.com/lobre/stork/raw/master/Language_Independent_Content_Extraction.pdf
-//
-// It provides here an implementation of the method given in the paper
-// but is not affiliated with the research.
-//
-// Before analysing the html document, the process first applies some simple techniques
-// to simplify the content.
-//  - strip everything that is not in the body tag
-//  - strip some unwanted tags
-//  - apply a simple whitespace removal strategy
 package main
 
 import (
