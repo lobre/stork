@@ -1,4 +1,4 @@
-package main
+package stork
 
 import (
 	"regexp"

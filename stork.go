@@ -1,4 +1,4 @@
-// package main implements an algorithm of html content extraction.
+// package stork implements an algorithm of html content extraction.
 //
 // It claims to bring a simple, robust, accurate and language-independent solution
 // for extracting the main content of an HTML-formatted Web page and for
@@ -21,15 +21,11 @@
 //  - strip everything that is not in the body tag
 //  - strip some unwanted tags
 //  - apply a simple whitespace removal strategy
-package main
+package stork
 
 import (
 	"errors"
-	"flag"
-	"fmt"
 	"io"
-	"log"
-	"net/http"
 
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
@@ -194,56 +190,6 @@ func (a *Article) generateArticle(body *html.Node) error {
 	return nil
 }
 
-func main() {
-	var url string
-	flag.StringVar(&url, "url", "", "url to parse")
-	flag.Parse()
-
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	//inline := `<html><body><div id="toto" class="outter-class">
-	//        <h1 class="inner-class">
-	//	        The string I need
-	//
-	//	        <span class="other-class" >Some value I don't need</span>
-	//	        <span class="other-class2" title="sometitle"></span>
-	//            <script></script>
-	//        </h1>
-	//
-	//        <pre>function toto()
-	//        toto
-	//          toto</pre>
-	//
-	//        <div class="other-class3">
-	//            <h3>Some heading i don't need</h3>
-	//        </div>
-	//    </div></body></html>`
-
-	//art, err := From(strings.NewReader(inline))
-	art, err := From(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//md, err := art.Markdown()
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//fmt.Println(md)
-
-	//html, err := art.Html()
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//fmt.Println(html)
-
-	fmt.Println(art.Text())
-}
-
 // Plot will draw the density graph calculated
 // from the extracted article.
 //
@@ -252,34 +198,4 @@ func main() {
 func (a *Article) Plot() string {
 	data := []float64{3, 4, 9, 6, 2, 4, 5, 8, 5, 10, 2, 7, 2, 5, 6}
 	return asciigraph.Plot(data, asciigraph.Height(30))
-}
-
-func iterate(doc *html.Node, do func(*html.Node)) {
-	if doc == nil {
-		return
-	}
-
-	var f func(n *html.Node)
-	f = func(n *html.Node) {
-		if n == nil {
-			return
-		}
-
-		do(n)
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
-		}
-
-		return
-	}
-	f(doc)
-}
-
-func remove(n *html.Node) {
-	// save next because it is removed by RemoveChild
-	// but we need it to continue iterating
-	next := n.NextSibling
-	n.Parent.RemoveChild(n)
-	n.NextSibling = next
 }

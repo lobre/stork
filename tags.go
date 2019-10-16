@@ -1,4 +1,4 @@
-package main
+package stork
 
 // IgnoreTags are tags that will be removed from the document before analysing it.
 // This list contains tags such as metadata elements that don't make sense in
