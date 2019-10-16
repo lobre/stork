@@ -31,6 +31,15 @@ import (
 	"golang.org/x/net/html"
 )
 
+// blockText stores the textual representation of
+// a structural block element on an html page.
+// It aims to be used in a slice to
+// calculate the density.
+type blockText struct {
+	block *html.Node
+	text  string
+}
+
 // Article contains all the extracted values of an html document.
 // It should be created using the From() method.
 type Article struct {
@@ -56,10 +65,7 @@ type Article struct {
 		Title       string
 	}
 
-	density []struct {
-		block *html.Node
-		text  string
-	}
+	density []blockText
 
 	output *html.Node
 }
@@ -172,7 +178,22 @@ func (a *Article) clean(body *html.Node) error {
 }
 
 func (a *Article) calculateDensity(body *html.Node) error {
-	// fill the density slice
+	a.density = nil
+	a.density = append(a.density, blockText{body, ""})
+	idx := 0
+
+	iterate(body, func(n *html.Node) {
+		switch n.Type {
+		case html.ElementNode:
+			if blockTags[n.Data] {
+				a.density = append(a.density, blockText{n, ""})
+				idx++
+			}
+		case html.TextNode:
+			a.density[idx].text += n.Data
+		}
+	})
+
 	return nil
 }
 
@@ -196,6 +217,9 @@ func (a *Article) generateArticle(body *html.Node) error {
 // It will generate a graph similar to the one on figure 2 at page 3 of the paper.
 // https://github.com/lobre/stork/raw/master/Language_Independent_Content_Extraction.pdf
 func (a *Article) Plot() string {
-	data := []float64{3, 4, 9, 6, 2, 4, 5, 8, 5, 10, 2, 7, 2, 5, 6}
+	var data []float64
+	for _, t := range a.density {
+		data = append(data, float64(len(t.text)))
+	}
 	return asciigraph.Plot(data, asciigraph.Height(30))
 }
