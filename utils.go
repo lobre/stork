@@ -31,3 +31,10 @@ func remove(n *html.Node) {
 	n.Parent.RemoveChild(n)
 	n.NextSibling = next
 }
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}

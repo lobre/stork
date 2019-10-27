@@ -25,11 +25,20 @@ package stork
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
 )
+
+// c1 is a factor that will be applied to the size of the longest text
+// in order to calculate the lowest acceptable length.
+const c1 float64 = 0.1
+
+// c2 is the maximum distance from the main content allowed to determine
+// that some text belong as well to the main content.
+const c2 int = 8
 
 // blockText stores the textual representation of
 // a structural block element on an html page.
@@ -112,7 +121,6 @@ func From(r io.Reader) (*Article, error) {
 		return nil, err
 	}
 
-	// TODO
 	if err := a.clean(body); err != nil {
 		return nil, err
 	}
@@ -124,7 +132,7 @@ func From(r io.Reader) (*Article, error) {
 	}
 
 	// TODO
-	if err := a.generateArticle(body); err != nil {
+	if err := a.extractContent(body); err != nil {
 		return nil, err
 	}
 
@@ -198,7 +206,73 @@ func (a *Article) calculateDensity(body *html.Node) error {
 }
 
 // body parameter is temporary while the density is not implemented
-func (a *Article) generateArticle(body *html.Node) error {
+func (a *Article) extractContent(body *html.Node) error {
+	if len(a.density) <= 0 {
+		return errors.New("wrong density")
+	}
+
+	// find longest text
+	smax, maxl := 0, 0
+	for i, d := range a.density {
+		if len(d.text) > maxl {
+			smax = i
+			maxl = len(d.text)
+		}
+	}
+
+	cutoff := int(float64(maxl) * c1)
+
+	// high density region
+	hdr := []int{smax}
+
+	restart := true
+	for restart {
+		restart = false
+		for i, d := range a.density {
+			if len(d.text) > cutoff {
+				add := false
+				for _, j := range hdr {
+					// already exists
+					if i == j {
+						add = false
+						break
+					}
+					if abs(i-j) < c2 {
+						add = true
+					}
+				}
+				if add {
+					hdr = append(hdr, i)
+					restart = true
+				}
+			}
+		}
+	}
+
+	start, end := smax, smax
+	for _, i := range hdr {
+		if i < start {
+			start = i
+		}
+		if i > end {
+			end = i
+		}
+	}
+
+	idx := start
+	for idx <= end {
+		fmt.Println(a.density[idx].text)
+		idx++
+	}
+
+	// print smax
+	fmt.Printf("\nsmax is %d\nmaxl is %d\ncutoff is %d\n\n", smax, maxl, cutoff)
+
+	// print with length
+	for i, d := range a.density {
+		fmt.Printf("%d (%d) - %s\n", i, len(d.text), d.text)
+	}
+
 	// initiale node with an html skeleton
 	// generate metadata nodes
 	// generate thumbnail node
