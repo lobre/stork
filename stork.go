@@ -32,13 +32,13 @@ import (
 	"golang.org/x/net/html"
 )
 
-// c1 is a factor that will be applied to the size of the longest text
-// in order to calculate the lowest acceptable length.
-const c1 float64 = 0.1
+// Cutoff is the minimum size of text that makes a block
+// valid as part of the main content.
+var Cutoff int = 100
 
-// c2 is the maximum distance from the main content allowed to determine
+// Leash is the maximum distance from the main content allowed to determine
 // that some text belong as well to the main content.
-const c2 int = 8
+var Leash int = 5
 
 // blockText stores the textual representation of
 // a structural block element on an html page.
@@ -220,8 +220,6 @@ func (a *Article) extractContent(body *html.Node) error {
 		}
 	}
 
-	cutoff := int(float64(maxl) * c1)
-
 	// high density region
 	hdr := []int{smax}
 
@@ -229,7 +227,7 @@ func (a *Article) extractContent(body *html.Node) error {
 	for restart {
 		restart = false
 		for i, d := range a.density {
-			if len(d.text) > cutoff {
+			if len(d.text) > Cutoff {
 				add := false
 				for _, j := range hdr {
 					// already exists
@@ -237,7 +235,7 @@ func (a *Article) extractContent(body *html.Node) error {
 						add = false
 						break
 					}
-					if abs(i-j) < c2 {
+					if abs(i-j) < Leash {
 						add = true
 					}
 				}
@@ -266,7 +264,7 @@ func (a *Article) extractContent(body *html.Node) error {
 	}
 
 	// print smax
-	fmt.Printf("\nsmax is %d\nmaxl is %d\ncutoff is %d\n\n", smax, maxl, cutoff)
+	fmt.Printf("\nsmax is %d\nmaxl is %d\ncutoff is %d\n\n", smax, maxl, Cutoff)
 
 	// print with length
 	for i, d := range a.density {

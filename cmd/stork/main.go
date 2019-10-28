@@ -17,7 +17,17 @@ func main() {
 	file := flag.String("file", "", "file to parse")
 	output := flag.String("o", "html", "output [html|markdown|text]")
 	plot := flag.Bool("plot", false, "whether to plot the density")
+	cutoff := flag.Int("cutoff", 0, "cutoff value")
+	leash := flag.Int("leash", 0, "leash value")
 	flag.Parse()
+
+	if *cutoff != 0 {
+		stork.Cutoff = *cutoff
+	}
+
+	if *leash != 0 {
+		stork.Leash = *leash
+	}
 
 	var art *stork.Article
 
