@@ -23,7 +23,7 @@ The algorithm is initially using two constants.
     c1 = 0.333
     c2 = 4
 
-If trying to semantically explain these constants, `c1` would be used to calculate a cutoff as `cutoff = c1 * maxLength` where `maxLenght` is the longest parsed string in the article.
+If trying to semantically explain these constants, `c1` would be used to calculate a cutoff as `cutoff = c1 * maxLength` where `maxLength` is the longest parsed string in the article.
 Where iterating on the document, all the strings whose length is lower to the cutoff would not be marked as content.
 
 `c2` is another metric that I would call: "leash". It defines that if a text is long enough to pass the cutoff, it will have to be situated up to 4 slots from another text that is part of the content. Otherwise, this text would not be considered as content.
