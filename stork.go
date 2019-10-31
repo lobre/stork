@@ -32,13 +32,15 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Cutoff is the minimum size of text that makes a block
-// valid as part of the main content.
-var Cutoff int = 100
+// leashParams represents parameters needed
+// to calculate a leash from a text size.
+type leashParams struct {
+	minLength, maxLength float64
+	minLeash, maxLeash   float64
+}
 
-// Leash is the maximum distance from the main content allowed to determine
-// that some text belong as well to the main content.
-var Leash int = 5
+// default values for leash calculation
+var defaultLeashParams = leashParams{0, 400, 0, 40}
 
 // blockText stores the textual representation of
 // a structural block element on an html page.
@@ -227,22 +229,21 @@ func (a *Article) extractContent(body *html.Node) error {
 	for restart {
 		restart = false
 		for i, d := range a.density {
-			if len(d.text) > Cutoff {
-				add := false
-				for _, j := range hdr {
-					// already exists
-					if i == j {
-						add = false
-						break
-					}
-					if abs(i-j) < Leash {
-						add = true
-					}
+			add := false
+			for _, j := range hdr {
+				// already exists
+				if i == j {
+					add = false
+					break
 				}
-				if add {
-					hdr = append(hdr, i)
-					restart = true
+				leash := calculateLeash(defaultLeashParams, len(d.text))
+				if abs(i-j) < leash {
+					add = true
 				}
+			}
+			if add {
+				hdr = append(hdr, i)
+				restart = true
 			}
 		}
 	}
@@ -264,7 +265,7 @@ func (a *Article) extractContent(body *html.Node) error {
 	}
 
 	// print smax
-	fmt.Printf("\nsmax is %d\nmaxl is %d\ncutoff is %d\n\n", smax, maxl, Cutoff)
+	fmt.Printf("\nsmax is %d\nmaxl is %d\n\n", smax, maxl)
 
 	// print with length
 	for i, d := range a.density {
@@ -294,4 +295,20 @@ func (a *Article) Plot() string {
 		data = append(data, float64(len(t.text)))
 	}
 	return asciigraph.Plot(data, asciigraph.Height(30))
+}
+
+func calculateLeash(lp leashParams, length int) int {
+	var res float64
+	res = (((lp.maxLeash - lp.minLeash) * (float64(length) - lp.minLength)) /
+		(lp.maxLength - lp.minLength)) + lp.minLeash
+
+	if res < lp.minLeash {
+		res = lp.minLeash
+	}
+
+	if res > lp.maxLeash {
+		res = lp.maxLeash
+	}
+
+	return int(res)
 }
