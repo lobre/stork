@@ -38,3 +38,17 @@ func abs(x int) int {
 	}
 	return x
 }
+
+func createNode(tag string, content string, attr []html.Attribute) *html.Node {
+	elmtNode := html.Node{
+		Type: html.ElementNode,
+		Data: tag,
+		Attr: attr,
+	}
+	textNode := html.Node{
+		Type: html.TextNode,
+		Data: content,
+	}
+	elmtNode.AppendChild(&textNode)
+	return &elmtNode
+}

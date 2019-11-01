@@ -27,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
@@ -41,6 +42,16 @@ type leashParams struct {
 
 // default values for leash calculation
 var defaultLeashParams = leashParams{0, 400, 0, 40}
+
+var htmlSkeleton string = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+  </body>
+</html>`
 
 // blockText stores the textual representation of
 // a structural block element on an html page.
@@ -60,20 +71,18 @@ type Article struct {
 	// Images contained in the extracted article
 	Images []*Image
 
-	// All metadata taken from the html document
+	// Links contained in the extracted article
+	Links []string
+
+	// Metadata taken from the html document
 	Meta struct {
-		Authors     []string
-		Canonical   string
-		Description string
-		Domain      string
-		Favicon     string
-		Keywords    string
-		Links       []string
 		Lang        string
-		OpenGraph   map[string]string
-		PublishDate string
-		Tags        []string
+		Canonical   string
 		Title       string
+		Favicon     string
+		Description string
+		Keywords    string
+		OpenGraph   map[string]string
 	}
 
 	density []blockText
@@ -83,12 +92,10 @@ type Article struct {
 
 // Image contains information taken from a <img> html tag.
 type Image struct {
-	Src        string
-	Width      uint
-	Height     uint
-	Bytes      int64
-	Confidence uint
-	Node       *html.Node
+	Src    string
+	Width  uint
+	Height uint
+	node   *html.Node
 }
 
 // From parses an html document from an io.Reader
@@ -264,6 +271,10 @@ func (a *Article) extractContent(body *html.Node) error {
 		idx++
 	}
 
+	if err := a.assembleOutput(start, end); err != nil {
+		return err
+	}
+
 	// print smax
 	fmt.Printf("\nsmax is %d\nmaxl is %d\n\n", smax, maxl)
 
@@ -272,14 +283,98 @@ func (a *Article) extractContent(body *html.Node) error {
 		fmt.Printf("%d (%d) - %s\n", i, len(d.text), d.text)
 	}
 
-	// initiale node with an html skeleton
-	// generate metadata nodes
-	// generate thumbnail node
-	// calculate article boundaries with density map
-	// append relevant tags to article
+	return nil
+}
 
-	// temp
-	a.output = body
+func (a *Article) assembleOutput(start, end int) error {
+	reader := strings.NewReader(htmlSkeleton)
+
+	var err error
+	a.output, err = html.Parse(reader)
+	if err != nil {
+		return err
+	}
+
+	// search head and body
+	var root, head, body *html.Node
+	iterate(a.output, func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "html":
+				root = n
+			case "head":
+				head = n
+			case "body":
+				body = n
+			}
+		}
+	})
+
+	if root == nil || head == nil || body == nil {
+		return errors.New("error parsing html skeleton")
+	}
+
+	if a.Meta.Lang != "" {
+		root.Attr = append(root.Attr, html.Attribute{Key: "lang", Val: a.Meta.Lang})
+	}
+
+	if a.Meta.Description != "" {
+		head.AppendChild(createNode("meta", "", []html.Attribute{
+			html.Attribute{Key: "name", Val: "description"},
+			html.Attribute{Key: "content", Val: a.Meta.Description},
+		}))
+	}
+
+	if a.Meta.Keywords != "" {
+		head.AppendChild(createNode("meta", "", []html.Attribute{
+			html.Attribute{Key: "name", Val: "keywords"},
+			html.Attribute{Key: "content", Val: a.Meta.Keywords},
+		}))
+	}
+
+	for k, v := range a.Meta.OpenGraph {
+		head.AppendChild(createNode("meta", "", []html.Attribute{
+			html.Attribute{Key: "property", Val: "og:" + k},
+			html.Attribute{Key: "content", Val: v},
+		}))
+	}
+
+	if a.Meta.Title != "" {
+		head.AppendChild(createNode("title", a.Meta.Title, nil))
+		body.AppendChild(createNode("h1", a.Meta.Title, nil))
+	}
+
+	if a.Meta.Canonical != "" {
+		head.AppendChild(createNode("link", "", []html.Attribute{
+			html.Attribute{Key: "rel", Val: "canonical"},
+			html.Attribute{Key: "href", Val: a.Meta.Canonical},
+		}))
+	}
+
+	if a.Meta.Favicon != "" {
+		head.AppendChild(createNode("link", "", []html.Attribute{
+			html.Attribute{Key: "rel", Val: "shortcut icon"},
+			html.Attribute{Key: "href", Val: a.Meta.Favicon},
+			html.Attribute{Key: "type", Val: "image/x-icon"},
+		}))
+	}
+
+	if a.Thumbnail != nil {
+		// shallow copy
+		thumb := *a.Thumbnail.node
+		thumb.Parent, thumb.PrevSibling, thumb.NextSibling = nil, nil, nil
+		body.AppendChild(&thumb)
+	}
+
+	// append article content
+	idx := start
+	for idx <= end {
+		// shallow copy
+		block := *a.density[idx].block
+		block.Parent, block.PrevSibling, block.NextSibling = nil, nil, nil
+		body.AppendChild(&block)
+		idx++
+	}
 
 	return nil
 }
