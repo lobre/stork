@@ -43,15 +43,7 @@ type leashParams struct {
 // default values for leash calculation
 var defaultLeashParams = leashParams{0, 400, 0, 40}
 
-var htmlSkeleton string = `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-  </head>
-  <body>
-  </body>
-</html>`
+var htmlSkeleton string = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /></head><body></body></html>"
 
 // blockText stores the textual representation of
 // a structural block element on an html page.
@@ -265,22 +257,8 @@ func (a *Article) extractContent(body *html.Node) error {
 		}
 	}
 
-	idx := start
-	for idx <= end {
-		fmt.Println(a.density[idx].text)
-		idx++
-	}
-
 	if err := a.assembleOutput(start, end); err != nil {
 		return err
-	}
-
-	// print smax
-	fmt.Printf("\nsmax is %d\nmaxl is %d\n\n", smax, maxl)
-
-	// print with length
-	for i, d := range a.density {
-		fmt.Printf("%d (%d) - %s\n", i, len(d.text), d.text)
 	}
 
 	return nil
@@ -377,6 +355,17 @@ func (a *Article) assembleOutput(start, end int) error {
 	}
 
 	return nil
+}
+
+// Density returns the content from the density table
+// with index and text length prepended to each text item.
+// This function is for debug purposes.
+func (a *Article) Density() string {
+	var b strings.Builder
+	for i, d := range a.density {
+		b.WriteString(fmt.Sprintf("%d (%d) - %s\n", i, len(d.text), d.text))
+	}
+	return b.String()
 }
 
 // Plot will draw the density graph calculated

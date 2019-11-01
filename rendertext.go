@@ -1,26 +1,26 @@
 package stork
 
 import (
-	"bytes"
+	"strings"
 
 	"golang.org/x/net/html"
 )
 
 // Text renders a text version of the article.
 func (a *Article) Text() string {
-	buf := bytes.Buffer{}
+	b := strings.Builder{}
 
 	iterate(a.output, func(n *html.Node) {
 		switch n.Type {
 
 		case html.ElementNode:
 			if n.Data == "ul" || n.Data == "br" {
-				buf.WriteString("\n")
+				b.WriteString("\n")
 				break
 			}
 
 			if n.Data == "li" {
-				buf.WriteString("\n - ")
+				b.WriteString("\n - ")
 				break
 			}
 
@@ -34,14 +34,14 @@ func (a *Article) Text() string {
 			}
 
 			if blockTags[n.Data] {
-				buf.WriteString("\n\n")
+				b.WriteString("\n\n")
 			}
 
 		case html.TextNode:
-			buf.WriteString(n.Data)
+			b.WriteString(n.Data)
 		}
 
 	})
 
-	return buf.String()
+	return b.String()
 }

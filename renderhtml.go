@@ -36,7 +36,7 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int, indent bool) error 
 		return err
 	case html.DocumentNode:
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if err := renderHtml(b, c, depth+1, indent); err != nil {
+			if err := renderHtml(b, c, depth, indent); err != nil {
 				return err
 			}
 		}
@@ -53,8 +53,12 @@ func renderHtml(b *strings.Builder, n *html.Node, depth int, indent bool) error 
 		if _, err := b.WriteString(n.Data); err != nil {
 			return err
 		}
+		if err := b.WriteByte('>'); err != nil {
+			return err
+		}
 		// We don't render attributes
-		return b.WriteByte('>')
+		_, err := b.WriteString(NewStr)
+		return err
 	default:
 		return errors.New("unknown node type")
 	}

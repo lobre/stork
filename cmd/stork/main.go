@@ -15,8 +15,9 @@ import (
 func main() {
 	url := flag.String("url", "", "url to parse")
 	file := flag.String("file", "", "file to parse")
-	output := flag.String("o", "html", "output [html|markdown|text]")
+	output := flag.String("output", "html", "output [html|markdown|text]")
 	plot := flag.Bool("plot", false, "whether to plot the density")
+	density := flag.Bool("density", false, "whether to print the density")
 	flag.Parse()
 
 	var art *stork.Article
@@ -50,8 +51,15 @@ func main() {
 		log.Fatal("nothing to process")
 	}
 
+	if *density {
+		fmt.Println(art.Density())
+	}
+
 	if *plot {
 		fmt.Println(art.Plot())
+	}
+
+	if *density || *plot {
 		os.Exit(0)
 	}
 
