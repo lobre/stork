@@ -52,3 +52,50 @@ func createNode(tag string, content string, attr []html.Attribute) *html.Node {
 	elmtNode.AppendChild(&textNode)
 	return &elmtNode
 }
+
+func reverseNodes(nodes []*html.Node) {
+	for i := len(nodes)/2 - 1; i >= 0; i-- {
+		opp := len(nodes) - 1 - i
+		nodes[i], nodes[opp] = nodes[opp], nodes[i]
+	}
+}
+
+func ancestorsWithSameParent(n, p *html.Node) (*html.Node, *html.Node) {
+	var nPath, pPath []*html.Node
+
+	search := n
+	for search != nil {
+		nPath = append(nPath, search)
+		search = search.Parent
+	}
+
+	if len(nPath) == 0 {
+		return nil, nil
+	}
+
+	reverseNodes(nPath)
+
+	search = p
+	for search != nil {
+		pPath = append(pPath, search)
+		search = search.Parent
+	}
+
+	if len(pPath) == 0 {
+		return nil, nil
+	}
+
+	reverseNodes(pPath)
+
+	if nPath[0] != pPath[0] {
+		return nil, nil
+	}
+
+	for i := 0; i < len(nPath) && i < len(pPath); i++ {
+		if nPath[i] != pPath[i] {
+			return nPath[i], pPath[i]
+		}
+	}
+
+	return nil, nil
+}

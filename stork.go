@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/guptarohit/asciigraph"
 	"golang.org/x/net/html"
@@ -50,8 +51,10 @@ var htmlSkeleton string = "<!DOCTYPE html><html><head><meta charset=\"utf-8\" />
 // It aims to be used in a slice to
 // calculate the density.
 type blockText struct {
-	block *html.Node
-	text  string
+	// blocks holds all html text nodes
+	// contained in the corresponding text
+	blocks []*html.Node
+	text   string
 }
 
 // Article contains all the extracted values of an html document.
@@ -188,18 +191,19 @@ func (a *Article) clean(body *html.Node) error {
 
 func (a *Article) calculateDensity(body *html.Node) error {
 	a.density = nil
-	a.density = append(a.density, blockText{body, ""})
+	a.density = append(a.density, blockText{nil, ""})
 	idx := 0
 
 	iterate(body, func(n *html.Node) {
 		switch n.Type {
 		case html.ElementNode:
 			if blockTags[n.Data] {
-				a.density = append(a.density, blockText{n, ""})
+				a.density = append(a.density, blockText{[]*html.Node{}, ""})
 				idx++
 			}
 		case html.TextNode:
 			a.density[idx].text += n.Data
+			a.density[idx].blocks = append(a.density[idx].blocks, n)
 		}
 	})
 
@@ -345,13 +349,22 @@ func (a *Article) assembleOutput(start, end int) error {
 	}
 
 	// append article content
-	idx := start
-	for idx <= end {
+	firstBlock := a.density[start].blocks[0]
+	lastBlock := a.density[end].blocks[len(a.density[end].blocks)-1]
+
+	firstBlock, lastBlock = ancestorsWithSameParent(firstBlock, lastBlock)
+	cur := firstBlock
+	for {
 		// shallow copy
-		block := *a.density[idx].block
+		block := *cur
 		block.Parent, block.PrevSibling, block.NextSibling = nil, nil, nil
 		body.AppendChild(&block)
-		idx++
+
+		if cur == lastBlock {
+			break
+		}
+
+		cur = cur.NextSibling
 	}
 
 	return nil
@@ -362,9 +375,14 @@ func (a *Article) assembleOutput(start, end int) error {
 // This function is for debug purposes.
 func (a *Article) Density() string {
 	var b strings.Builder
+	writer := tabwriter.NewWriter(&b, 0, 8, 1, '\t', 0)
+
 	for i, d := range a.density {
-		b.WriteString(fmt.Sprintf("%d (%d) - %s\n", i, len(d.text), d.text))
+		leash := calculateLeash(defaultLeashParams, len(d.text))
+		fmt.Fprintf(writer, "%d\tlen: %d\tleash: %d\t%s\n", i, len(d.text), leash, d.text)
 	}
+
+	writer.Flush()
 	return b.String()
 }
 

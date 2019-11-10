@@ -50,7 +50,7 @@ With this new behavior in the algorithm, we have better results. And if I try ag
 
 ## How to build and run for dev
 
-    go build -o stork cmd/stork/main.go && ./stork -url "https://blog.golang.org/using-go-modules" -o text
+    go build -o stork cmd/stork/main.go && ./stork -url "https://blog.golang.org/using-go-modules" -output text
 
 ## Related projects
 
